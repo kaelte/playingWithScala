@@ -2,55 +2,105 @@ package ordinals
 
 import scala.annotation.tailrec
 
-object ordinals{
 
-  val f = (i:Int,j:Int)=>i+j
+sealed trait Ordinal {
 
-  def compose[A,B,C](f:B=>C, g:A=>B):A=>C = (a:A) => f(g(a))
-
-  def curry[A,B,C](f: (A,B) => C): A => (B => C) = (a:A) => (b:B) => f(a,b):C
-
-  def unCurry[A,B,C](f: A => (B => C)): (A,B) => C = (a:A,b:B) => f(a)(b):C
-
-  def fibonacci(n: Int): BigInt = {
-    @tailrec
-    def go(i: Int,x:BigInt,y:BigInt):BigInt = {
-      if (i<2) x
-      else go(i-1,y,x+y)
+  final override def toString: String = {
+    // a beautiful string
+    if (this.isFinite)
+      this.toBigInt.get.toString
+    else this match {
+      case Ord(ords) => Ordinal.ordListToString(ords)
     }
-    go(n,0,1)
   }
 
-  def isSorted[A](as: Array[A], isOrdered: (A,A) => Boolean): Boolean = {
-    @tailrec
-    def go(i: Int): Boolean = { (i<1) || (isOrdered(as(i-1),as(i)) && go(i-1)) }
-    go(as.size-1)
+  final def isZero: Boolean = this match {
+      // returns true iff this is zero
+    case Ord(List()) => true
+    case Ord(ords) => false
   }
 
-
-
-  def main(args: Array[String]) {
-    val integerArgs:Array[Int] = args.map((s:String) => s.toInt)
-
-    println("****** Chapter_02 ******")
-    println("************************")
-    println("*** Testing isSorted ***")
-    assert(isSorted(Array(),(i:Int,j:Int) => (i<j):Boolean))
-    assert(isSorted(Array(0),(i:Int,j:Int) => (i<j):Boolean))
-    assert(isSorted(Array(0,1,2,4),(i:Int,j:Int) => (i<j):Boolean))
-    assert(!isSorted(Array(0,0,1,2,4),(i:Int,j:Int) => (i<j):Boolean))
-    println("Tach! " + " Thanks for giving me "+ args.size +" arguments.")
-    println("The arguments are sorted: " + isSorted(integerArgs,(i:Int,j:Int) => (i<j):Boolean))
-    println("*** Fibonacci numbers ***")
-    integerArgs.foreach((i: Int) => println("fibonacci(" + i + ")=" + fibonacci(i)))
-    println("*** Curry, UnCurry and Compose***")
-    println("( (i:Int,j:Int)=>i+j )(2,3) = " + ( (i:Int,j:Int)=>i+j )(2,3))
-    println("( curry( (i:Int,j:Int)=>i+j ) (2)(3) = " + curry( (i:Int,j:Int)=>i+j ) (2)(3))
-    println("( unCurry(curry( (i:Int,j:Int)=>i+j )) (2,3) = " + unCurry(curry( (i:Int,j:Int)=>i+j )) (2,3))
-    assert(compose((i:Int)=>i*2,(i:Int)=>i+3)(5) == 16)
-    println("compose((i:Int)=>i*2,(i:Int)=>i+3)(5) = " + compose((i:Int)=>i*2,(i:Int)=>i+3)(5))
-    println("compose(unCurry[Int, Int, Int],curry[Int, Int, Int])( (i:Int,j:Int)=>i+j )(3,4) = " + compose(unCurry[Int, Int, Int],curry[Int, Int, Int])( (i:Int,j:Int)=>i+j )(3,4))
-    assert( unCurry(curry( (i:Int,j:Int)=>i+j )) (22,33) == ((i:Int,j:Int)=>i+j)(22,33) )
-    assert( compose(unCurry[Int, Int, Int],curry[Int, Int, Int])( (i:Int,j:Int)=>i+j ) (22,33) == ((i:Int,j:Int)=>i+j)(22,33) )
+  final def isFinite: Boolean = this match {
+    // returns true iff this is finite
+    case Ord(ords) => ords.forall(_.isZero)
   }
+
+  final def toBigInt: Option[BigInt] = {
+    // returns Some(i) if this is the finite ordinal i
+    // None otherwise
+    if (this.isFinite)
+      this match {
+        case Ord(ords) => Option(ords.length)
+      }
+    else None
+  }
+
+  final def isSmaller(beta: Ordinal): Boolean = this match {
+    // returns true iff this is smaller than that
+    case Ord(List()) => !(beta == Ordinal.zero)
+    case Ord(List(alphas)) => true
+  }
+
 }
+
+//case object Nil extends Ordinal
+case class Ord(ords: List[Ordinal]) extends Ordinal
+
+
+object Ordinal {
+  final val zero: Ordinal = Ord(List())
+  final val one: Ordinal = Ord(List(zero))
+  final val omega: Ordinal = Ord(List(one))
+  final val omegaStr: String = "W"
+
+
+  final def ordListToString(ords: List[Ordinal]): String = ords match {
+    case List() => "NIL"
+    case o :: List() => omegaStr + "^(" + o + ")"
+    case o :: os => omegaStr + "^(" + o + ") + " + ordListToString(os)
+  }
+
+  final def apply(i: Int):Ordinal = Ord(List().padTo(i.max(0),zero))
+
+}
+
+
+object ordinalApp extends App {
+
+  println("****************************")
+  println("********* Ordinals *********")
+  println("****************************")
+  println("System.getProperty(\"file.encoding\") = " + System.getProperty("file.encoding"))
+  println(s"Hellenic letters : α β γ ω")
+  println("****************************")
+  println("Ordinal.zero           = " + Ordinal.zero)
+  println("Ordinal.zero.isZero    = " + Ordinal.zero.isZero)
+  println("Ordinal.zero.isFinite  = " + Ordinal.zero.isFinite)
+  println("Ordinal(1)             = " + Ordinal(1))
+  println("Ordinal(1).isZero      = " + Ordinal(1).isZero)
+  println("Ordinal(1).isFinite    = " + Ordinal(1).isFinite)
+  println("Ordinal(42)            = " + Ordinal(42))
+  println("Ordinal(42).isZero     = " + Ordinal(42).isZero)
+  println("Ordinal(42).isFinite   = " + Ordinal(42).isFinite)
+  println("Ordinal(-42)           = " + Ordinal(-42))
+  println("Ordinal(-42).isZero    = " + Ordinal(-42).isZero)
+  println("Ordinal(-42).isFinite  = " + Ordinal(-42).isFinite)
+  println("Ordinal.omega          = " + Ordinal.omega)
+  println("Ordinal.omega.isZero   = " + Ordinal.omega.isZero)
+  println("Ordinal.omega.isFinite = " + Ordinal.omega.isFinite)
+  println("****************************")
+  println("***** Work in Progress *****")
+  println("Ordinal(0).isSmaller(Ordinal(0)) = " + Ordinal(0).isSmaller(Ordinal(0)))
+  println("Ordinal(0).isSmaller(Ordinal(1)) = " + Ordinal(0).isSmaller(Ordinal(1)))
+  println("Ordinal(1).isSmaller(Ordinal(0)) = " + Ordinal(1).isSmaller(Ordinal(0)))
+  println("Ordinal(1).isSmaller(Ordinal(1)) = " + Ordinal(1).isSmaller(Ordinal(1)))
+  println("****************************")
+  println("***** Work in Progress *****")
+  println("****************************")
+  println("Test : " + -42.max(0))
+}
+
+/// Local Variables:
+/// mode: scala
+/// coding: utf-8
+/// End:
