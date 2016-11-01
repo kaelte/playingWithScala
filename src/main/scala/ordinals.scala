@@ -43,7 +43,7 @@ object Ordinal {
   final val zero: Ordinal = Ord(Vector().par)
   final val one: Ordinal = Ord(Vector(zero).par)
   final val omega: Ordinal = Ord(Vector(one).par)
-  final val omegaStr: String = "W"
+  final val omegaStr: String = "ω"
 
   final def apply(i: Int): Ordinal = Ord(Vector.fill(i.max(0))(zero).par)
 
@@ -81,7 +81,7 @@ object Ordinal {
 object ordinalApp extends App {
 
   import util._
-  logg("System.getProperty(\"file.encoding\")")(System.getProperty("file.encoding"))
+  println("****************************")
   logg("Hellenic letters")("α β γ ω")
   println("****************************")
   println("********* Ordinals *********")
