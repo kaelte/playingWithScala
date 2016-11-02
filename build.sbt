@@ -11,11 +11,13 @@ scalacOptions ++= Seq(
     ,"-unchecked"
 )
 
+scalaVersion in ThisBuild := "2.11.8"
+
 lazy val utf8test = taskKey[Unit]("An example task")
 
 lazy val commonSettings = Seq(
   fork := true
-    ,scalaVersion := "2.12.0"
+    ,scalaVersion := "2.11.8"
     ,version := "0.1.1"
     //  ,resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 )
