@@ -29,7 +29,7 @@ sealed trait Ordinal {
       if (beta.isFinite)
         this.toBigInt.get < beta.toBigInt.get
       else true
-    // work in progress !!!    
+    // work in progress !!!
       else {
         println("isSmaller:  !!!! WORK IN PROGRESS: Do not trust the result !!!!")
         if (beta.isFinite) false else true
@@ -40,12 +40,12 @@ sealed trait Ordinal {
 case class Ord(ords: ParVector[Ordinal]) extends Ordinal
 
 object Ordinal {
-  final val zero: Ordinal = Ord(Vector().par)
-  final val one: Ordinal = Ord(Vector(zero).par)
-  final val omega: Ordinal = Ord(Vector(one).par)
+  final val zero = Ord(Vector().par)
+  final val one = Ord(Vector(zero).par)
+  final val omega = Ord(Vector(one).par)
   final val omegaStr: String = "ω"
 
-  final def apply(i: Int): Ordinal = Ord(Vector.fill(i.max(0))(zero).par)
+  final def apply(i: Int): Ord = Ord(Vector.fill(i.max(0))(zero).par)
 
   final def ordVecToString(ords: ParVector[Ordinal]): String = {
     @tailrec
@@ -67,9 +67,9 @@ object Ordinal {
     go(ords, "")
   }
 
-  final def omegaStack(n: BigInt): Ordinal = {
+  final def omegaStack(n: BigInt): Ord = {
     @tailrec
-    def go(i: BigInt, alpha: Ordinal): Ordinal = {
+    def go(i: BigInt, alpha: Ord): Ord = {
       if (i < 1) alpha
       else go(i - 1, Ord(Vector(alpha).par))
     }
