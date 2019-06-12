@@ -68,6 +68,7 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
     }
   }
 
+  final def add(that: Ord): Ord = Ord(this.getExpList++that.getExpList).normalise
 }
 
 
@@ -125,17 +126,11 @@ object ordinalApp extends App {
   println("********* Ordinals *********")
   println("****************************")
   println("zero                  = " + zero)
-  println("zero.isZero           = " + zero.isZero)
-  println("zero.isFinite         = " + zero.isFinite)
   println("Ordinal(1)            = " + Ordinal(1))
-  println("Ordinal(1).isZero     = " + Ordinal(1).isZero)
-  println("Ordinal(1).isFinite   = " + Ordinal(1).isFinite)
   println("Ordinal(42)           = " + Ordinal(42))
   println("Ordinal(42).isZero    = " + Ordinal(42).isZero)
   println("Ordinal(42).isFinite  = " + Ordinal(42).isFinite)
   println("Ordinal(-42)          = " + Ordinal(-42))
-  println("Ordinal(-42).isZero   = " + Ordinal(-42).isZero)
-  println("Ordinal(-42).isFinite = " + Ordinal(-42).isFinite)
   println("omega                 = " + omega)
   println("omega.isZero          = " + omega.isZero)
   println("omega.isFinite        = " + omega.isFinite)
@@ -152,11 +147,6 @@ object ordinalApp extends App {
   logg("omegaStack(1)")(omegaStack(1))
   logg("omegaStack(2)")(omegaStack(2))
   logg("omegaStack(3)")(omegaStack(3))
-  logg("omegaStack(42)")(omegaStack(42))
-  println("****************************")
-  logg("ordVecSortedSubVec("+Vector(one,Ordinal(42),zero,one).par+")")(ordVecSortedSubVec(Vector(one,Ordinal(42),zero,one).par))
-  logg("ordVecSortedSubVec("+Vector(zero,one,omega).par+")")(ordVecSortedSubVec(Vector(zero,one,omega).par))
-  logg("ordVecSortedSubVec("+Vector(zero,one,omegaStack(2),omegaStack(3),omegaStack(2),omegaStack(1)).par+")")(ordVecSortedSubVec(Vector(zero,one,omegaStack(2),omegaStack(3),omegaStack(2),omegaStack(1)).par))
   println("****************************")
   val alpha: Ord = Ord(Vector(one,Ordinal(42),zero,one).par)
   val beta: Ord = Ord(Vector(zero,one,omegaStack(2),Ord(Vector(omegaStack(2),omegaStack(3)).par),omegaStack(2),omegaStack(1)).par)
@@ -173,6 +163,11 @@ object ordinalApp extends App {
   logg("α.normalise")(alpha.normalise)
   logg("β.normalise")(beta.normalise)
   logg("γ.normalise")(gamma.normalise)
+  println("****************************")
+  logg("1.add(ω)")(one.add(omega))
+  logg("ω.add(1)")(omega.add(one))
+  logg("α.add(β)")(alpha.add(beta))
+  logg("β.add(α)")(beta.add(alpha))
   println("****************************")
   println("***** Work in Progress *****")
   println("****************************")
