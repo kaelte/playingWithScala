@@ -56,21 +56,26 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
   final def degree: Ord = getExpList.max
 
   final def isZero: Boolean = (this == zero)
-
+  final def isExp: Boolean = (1 == getExpList.size)
   final def isFinite: Boolean = getExpList.forall(_.isZero)
+  final def isLimit: Boolean = !getExpList.last.isZero
+  final def isSuccessor: Boolean = getExpList.last.isZero
+
 
   final def toInt: Option[Int] = if (isFinite) Some(getExpList.length) else None
   // toInt returns Some(i) iff this is the finite ordinal i
-
   final def toBigInt: Option[BigInt] = if (isFinite) Some(getExpList.length) else None
   // toBigInt returns Some(i) iff this is the finite ordinal i
+
+  final def predecessor: Option[Ord] = if (isSuccessor) Option(Ord(getExpList.init)) else None
+  final def successor: Ord = Ord(getExpList :+ zero)
+  final def exp: Ord = Ord(ParVector(this))
 
   final def normalise: Ord = {
     if (isFinite) this else {
       Ord(ordVecSortedSubVec(getExpList).map(_.normalise))
     }
   }
-
   final def isNormal: Boolean = {
     if (isFinite) true
     else {
@@ -98,14 +103,28 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
       thisTimesThatLimit.add(thisTimesThatFinite)
     }
   }
+
+  final def fSeq: Option[Int => Ord] = if(isZero||isSuccessor) None
+  else {
+    val expList: ParVector[Ord] = getExpList
+    val expListSize: Int = expList.size
+    val expLast: Ord = expList.last
+    if (1==expListSize) {
+      // this = ω^α
+      if(expLast.isSuccessor) Option(n => expLast.predecessor.get.exp.add(n.abs))
+      else Option(n => expLast.fSeq.get(n.abs).exp)
+    }
+    else Option(n=>Ord(expList.init).add(expList.last.exp.fSeq.get(n.abs)))
+  }
 }
 
 
+
 object Ordinal {
-  final val zero: Ord = new Ord(Vector().par)
-  final val one:Ord  = Ord(Vector(zero).par)
+  final val zero: Ord = new Ord(ParVector())
+  final val one:Ord  = zero.exp
   final val two:Ord  = Ord(Vector(zero,zero).par)
-  final val omega: Ord = Ord(Vector(one).par)
+  final val omega: Ord = one.exp
   final val omegaStr: String = "ω"
 
 
@@ -127,12 +146,9 @@ object Ordinal {
     if (ords.isEmpty) ords else ords.drop(ords.indexOf(ords.max))
   }
 
-  final def omegaStack(n: BigInt): Ord = {
+  final def omegaStack(n: Int): Ord = {
     @tailrec
-    def go(i: BigInt, alpha: Ord): Ord = {
-      if (i < 1) alpha
-      else go(i - 1, Ord(Vector(alpha).par))
-    }
+    def go(i: Int, alpha: Ord): Ord = if (i < 1) alpha else go(i - 1, alpha.exp)
     go(n, one)
   }
 
@@ -143,8 +159,12 @@ object Ordinal {
     def go(nVec: ParVector[Ord],aVec: ParVector[Ord]): ParVector[Ord] = {
       if (aVec.isEmpty) nVec else go(nVec :+ aVec.head,ordVecRemoveInitialSmaller(aVec.tail))
     }
-    go(Vector().par,ordVecRemoveInitialSmaller(ords))
+    go(ParVector(),ordVecRemoveInitialSmaller(ords))
   }
+
+  final def rec[A](z: A)(succOp: A => A)(limOp: A => Ord =>  A)(alpha: Ord) :A = ???
+
+  final def recAddition(alpha: Ord)(beta: Ord):Ord = rec[Ord](alpha)(_.successor)(???)(alpha)
 
 }
 
@@ -157,18 +177,14 @@ object ordinalApp extends App {
   println("****************************")
   println("********* Ordinals *********")
   println("****************************")
-  println("zero                  = " + zero)
-  println("Ordinal(1)            = " + Ordinal(1))
-  println("Ordinal(42)           = " + Ordinal(42))
-  println("Ordinal(-42)          = " + Ordinal(-42))
-  println("omega                 = " + omega)
-  println("omega.isZero          = " + omega.isZero)
-  println("omega.isFinite        = " + omega.isFinite)
-  println("omega^(42)            = " + Ord(Vector(Ordinal(42)).par))
-  println("****************************")
-  println("Ordinal(1).toBigInt   = " + Ordinal(1).toBigInt)
-  println("Ordinal(42).toBigInt  = " + Ordinal(42).toBigInt)
-  println("omega.toBigInt        = " + omega.toBigInt)
+  logg("zero")(zero)
+  logg("Ordinal(1)")(Ordinal(1))
+  logg("Ordinal(42)")(Ordinal(42))
+  logg("Ordinal(-42)")(Ordinal(-42))
+  logg("omega")(omega)
+  logg("omega.isZero")(omega.isZero)
+  logg("omega.isFinite")(omega.isFinite)
+  logg("omega^(42)")(Ord(ParVector(Ordinal(42))))
   println("****************************")
   logg("omegaStack(-42)")(omegaStack(-42))
   logg("omegaStack(0)")(omegaStack(0))
@@ -217,6 +233,17 @@ object ordinalApp extends App {
   logg("β.mult(2)")(beta.mult(two))
   logg("α.mult(β)")(alpha.mult(beta))
   logg("β.mult(α)")(beta.mult(alpha))
+  println("****************************")
+  logg("0.fSeq")(zero.fSeq)
+  logg("1.fSeq")(one.fSeq)
+  logg("ω.fSeq(0)")(omega.fSeq.get(0))
+  logg("ω.fSeq(42)")(omega.fSeq.get(42))
+  logg("ω.fSeq(-42)")(omega.fSeq.get(-42))
+  logg("ω².fSeq(42)")(two.exp.fSeq.get(42))
+  logg("ω^ω.fSeq(42)")(omega.exp.fSeq.get(42))
+  logg("omegaStack(3).fSeq(0)")(omegaStack(3).fSeq.get(0))
+  logg("omegaStack(3).fSeq(1)")(omegaStack(3).fSeq.get(1))
+  logg("omegaStack(3).fSeq(42)")(omegaStack(3).fSeq.get(42))
   println("****************************")
   println("***** Work in Progress *****")
   println("****************************")
