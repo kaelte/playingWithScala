@@ -10,12 +10,12 @@ import util._
 sealed trait Ordinal
 
 case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
-  final def getExpList: ParVector[Ord] = this match {case Ord(ords) => ords}
+  final def getExpList: ParVector[Ord] = ords
 
   final override def toString: String = {
     // a beautiful string
     if (isFinite) toBigInt.get.toString else {
-      val expStrs: ParVector[String] = getExpList.map(_.toString).map(Ordinal.omegaExpString)
+      val expStrs: ParVector[String] = ords.map(_.toString).map(Ordinal.omegaExpString)
       val lastInfinite: Int = expStrs.lastIndexWhere(_ != "1")
       // this = α + finiteEnd
       val finiteEnd: Int = expStrs.size-lastInfinite-1
@@ -46,7 +46,7 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
           }
         }
         // we call go with normalised (this,that)
-        go(normalise.getExpList,that.normalise.getExpList)
+        go(normalise.ords,that.normalise.ords)
       }
     }
   }
@@ -104,20 +104,26 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
     }
   }
 
-  final def fSeq: Option[Int => Ord] = if(isZero||isSuccessor) None
-  else {
-    val expList: ParVector[Ord] = getExpList
+  final def fSeq:Fseq = Fseq(this)
+}
+
+
+case class Fseq(lambda: Ord) {
+  final def isLimit: Boolean = lambda.isLimit
+  final def getLimit: Option[Ord] = if (isLimit) Option(lambda) else None
+  final def getSeq: Option[Int => Ord] = if(isLimit) {
+    val expList: ParVector[Ord] = lambda.getExpList
     val expListSize: Int = expList.size
     val expLast: Ord = expList.last
     if (1==expListSize) {
       // this = ω^α
       if(expLast.isSuccessor) Option(n => expLast.predecessor.get.exp.add(n.abs))
-      else Option(n => expLast.fSeq.get(n.abs).exp)
+      else Option(n => Fseq(expLast).getSeq.get(n.abs).exp)
     }
-    else Option(n=>Ord(expList.init).add(expList.last.exp.fSeq.get(n.abs)))
+    else Option(n=>Ord(expList.init).add(Fseq(expList.last.exp).getSeq.get(n.abs)))
   }
+  else None
 }
-
 
 
 object Ordinal {
@@ -162,7 +168,11 @@ object Ordinal {
     go(ParVector(),ordVecRemoveInitialSmaller(ords))
   }
 
-  final def rec[A](z: A)(succOp: A => A)(limOp: A => Ord =>  A)(alpha: Ord) :A = ???
+  final def rec[A](z: A)(succOp: A => A)(limOp: (Int => A) =>  A)(alpha: Ord) :A = {
+    if (alpha.isZero) z
+    else if (alpha.isSuccessor) succOp(rec[A](z)(succOp)(limOp)(alpha.predecessor.get))
+    else limOp(n => rec[A](z)(succOp)(limOp)(Fseq(alpha).getSeq.get(n)))
+  }
 
   final def recAddition(alpha: Ord)(beta: Ord):Ord = rec[Ord](alpha)(_.successor)(???)(alpha)
 
@@ -236,14 +246,14 @@ object ordinalApp extends App {
   println("****************************")
   logg("0.fSeq")(zero.fSeq)
   logg("1.fSeq")(one.fSeq)
-  logg("ω.fSeq(0)")(omega.fSeq.get(0))
-  logg("ω.fSeq(42)")(omega.fSeq.get(42))
-  logg("ω.fSeq(-42)")(omega.fSeq.get(-42))
-  logg("ω².fSeq(42)")(two.exp.fSeq.get(42))
-  logg("ω^ω.fSeq(42)")(omega.exp.fSeq.get(42))
-  logg("omegaStack(3).fSeq(0)")(omegaStack(3).fSeq.get(0))
-  logg("omegaStack(3).fSeq(1)")(omegaStack(3).fSeq.get(1))
-  logg("omegaStack(3).fSeq(42)")(omegaStack(3).fSeq.get(42))
+  logg("Fseq(ω)(0)")(Fseq(omega).getSeq.get(0))
+  logg("Fseq(ω)(42)")(Fseq(omega).getSeq.get(42))
+  logg("Fseq(ω)(-42)")(Fseq(omega).getSeq.get(-42))
+  logg("Fseq(ω²)(42)")(Fseq(two.exp).getSeq.get(42))
+  logg("ω^ω.fSeq(42)")(Fseq(omega.exp).getSeq.get(42))
+  logg("omegaStack(3).fSeq(0)")(Fseq(omegaStack(3)).getSeq.get(0))
+  logg("omegaStack(3).fSeq(1)")(Fseq(omegaStack(3)).getSeq.get(1))
+  logg("omegaStack(3).fSeq(42)")(Fseq(omegaStack(3)).getSeq.get(42))
   println("****************************")
   println("***** Work in Progress *****")
   println("****************************")
