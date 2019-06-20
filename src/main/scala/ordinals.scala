@@ -1,16 +1,17 @@
 package ordinals
 
 import scala.annotation.tailrec
-import scala.collection.immutable.Vector
-import scala.collection.parallel.immutable._
+import scala.collection.parallel.immutable.ParVector
 import Ordinal._
 import util._
+
+import scala.util.Random
 
 
 sealed trait Ordinal
 
 case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
-  final def getExpList: ParVector[Ord] = ords
+  final def getExpVec: ParVector[Ord] = ords
 
   final override def toString: String = {
     // a beautiful string
@@ -53,43 +54,43 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
 
   final def equals(that: Ord): Boolean = 0 == compare(that)
 
-  final def degree: Ord = getExpList.max
+  final def degree: Ord = getExpVec.max
 
   final def isZero: Boolean = (this == zero)
-  final def isExp: Boolean = (1 == getExpList.size)
-  final def isFinite: Boolean = getExpList.forall(_.isZero)
-  final def isLimit: Boolean = !getExpList.last.isZero
-  final def isSuccessor: Boolean = getExpList.last.isZero
+  final def isExp: Boolean = (1 == getExpVec.size)
+  final def isFinite: Boolean = getExpVec.forall(_.isZero)
+  final def isLimit: Boolean = !getExpVec.last.isZero
+  final def isSuccessor: Boolean = getExpVec.last.isZero
 
 
-  final def toInt: Option[Int] = if (isFinite) Some(getExpList.length) else None
+  final def toInt: Option[Int] = if (isFinite) Some(getExpVec.length) else None
   // toInt returns Some(i) iff this is the finite ordinal i
-  final def toBigInt: Option[BigInt] = if (isFinite) Some(getExpList.length) else None
+  final def toBigInt: Option[BigInt] = if (isFinite) Some(getExpVec.length) else None
   // toBigInt returns Some(i) iff this is the finite ordinal i
 
-  final def predecessor: Option[Ord] = if (isSuccessor) Option(Ord(getExpList.init)) else None
-  final def successor: Ord = Ord(getExpList :+ zero)
+  final def predecessor: Option[Ord] = if (isSuccessor) Option(Ord(getExpVec.init)) else None
+  final def successor: Ord = Ord(getExpVec :+ zero)
   final def exp: Ord = Ord(ParVector(this))
 
   final def normalise: Ord = {
     if (isFinite) this else {
-      Ord(ordVecSortedSubVec(getExpList).map(_.normalise))
+      Ord(ordVecSortedSubVec(getExpVec).map(_.normalise))
     }
   }
   final def isNormal: Boolean = {
     if (isFinite) true
     else {
-      val exps = getExpList
+      val exps = getExpVec
       ordVecIsSorted(exps) && exps.forall(_.isNormal)
     }
   }
 
-  final def degreePart: Ord = Ord(normalise.getExpList.filter(_.equals(degree)))
-  final def nonDegreePart: Ord = Ord(normalise.getExpList.filterNot(_.equals(degree)))
-  final def finitePart: Ord = Ord(normalise.getExpList.filter(_.isZero))
-  final def limitPart: Ord = Ord(normalise.getExpList.filterNot(_.isZero))
+  final def degreePart: Ord = Ord(normalise.getExpVec.filter(_.equals(degree)))
+  final def nonDegreePart: Ord = Ord(normalise.getExpVec.filterNot(_.equals(degree)))
+  final def finitePart: Ord = Ord(normalise.getExpVec.filter(_.isZero))
+  final def limitPart: Ord = Ord(normalise.getExpVec.filterNot(_.isZero))
 
-  final def add(that: Ord): Ord = Ord(getExpList++that.getExpList).normalise
+  final def add(that: Ord): Ord = Ord(getExpVec++that.getExpVec).normalise
   final def add(n: Int): Ord = add(Ordinal(n))
 
   final def mult(that: Ord): Ord = {
@@ -97,9 +98,9 @@ case class Ord(ords: ParVector[Ord]) extends Ordered[Ord]  {
     // that = thatLimit + thatFinite
     val thisDegree: Ord = degree
     val thatFinit: Int = that.finitePart.toInt.get
-    val thisTimesThatLimit: Ord = Ord(that.limitPart.getExpList.map(thisDegree.add(_)))
+    val thisTimesThatLimit: Ord = Ord(that.limitPart.getExpVec.map(thisDegree.add(_)))
     if (0==thatFinit) thisTimesThatLimit else {
-      val thisTimesThatFinite: Ord = Ord(Vector.fill(degreePart.getExpList.size * thatFinit)(thisDegree).par).add(nonDegreePart)
+      val thisTimesThatFinite: Ord = Ord(ParVector.fill(degreePart.getExpVec.size * thatFinit)(thisDegree)).add(nonDegreePart)
       thisTimesThatLimit.add(thisTimesThatFinite)
     }
   }
@@ -112,15 +113,15 @@ case class Fseq(lambda: Ord) {
   final def isLimit: Boolean = lambda.isLimit
   final def getLimit: Option[Ord] = if (isLimit) Option(lambda) else None
   final def getSeq: Option[Int => Ord] = if(isLimit) {
-    val expList: ParVector[Ord] = lambda.getExpList
-    val expListSize: Int = expList.size
-    val expLast: Ord = expList.last
-    if (1==expListSize) {
+    val expVec: ParVector[Ord] = lambda.getExpVec
+    val expVecSize: Int = expVec.size
+    val expLast: Ord = expVec.last
+    if (1==expVecSize) {
       // this = ω^α
       if(expLast.isSuccessor) Option(n => expLast.predecessor.get.exp.add(n.abs))
       else Option(n => Fseq(expLast).getSeq.get(n.abs).exp)
     }
-    else Option(n=>Ord(expList.init).add(Fseq(expList.last.exp).getSeq.get(n.abs)))
+    else Option(n=>Ord(expVec.init).add(Fseq(expVec.last.exp).getSeq.get(n.abs)))
   }
   else None
 }
@@ -129,12 +130,28 @@ case class Fseq(lambda: Ord) {
 object Ordinal {
   final val zero: Ord = new Ord(ParVector())
   final val one:Ord  = zero.exp
-  final val two:Ord  = Ord(Vector(zero,zero).par)
+  final val two:Ord  = Ord(ParVector(zero,zero))
   final val omega: Ord = one.exp
   final val omegaStr: String = "ω"
 
 
-  final def apply(i: Int): Ord = Ord(Vector.fill(i.max(0))(zero).par)
+  final def apply(n: Int): Ord = Ord(ParVector.fill(n.abs)(zero))
+
+  final def generate(N: Int): Ord = {
+ ///   logg("Ordinal.generate N")(N)
+    /// Generates an ordinal between 0 and omegaStack(N)
+    def go(N: Int,k: Int,alphas: ParVector[Ord]): ParVector[Ord] = {
+      if (0==N) ParVector.fill(k)(zero) //Ord(alphas))
+      else {
+//        val mc: Int = scala.math.pow(2,2.max(7-N)).toInt
+        val mc: Int = 3.max(32-16*N)
+        val nextK: Int = Random.nextInt(mc).abs.max(Random.nextInt(mc).abs)
+//        logg("Ordinal.generate.go (N,k,mc,nextK)")((N,k,mc,nextK))
+        ParVector.fill(k)(Ord(go(N-1,nextK,alphas)))
+      }
+    }
+    go(N,1,ParVector(zero)).head.normalise
+  }
 
   final def omegaExpString(str:String): String = {
     if (1==str.length)
@@ -158,7 +175,7 @@ object Ordinal {
     go(n, one)
   }
 
-  final def ordVecIsSorted(ords: ParVector[Ord]): Boolean = ords.sameElements(ords.toVector.sorted)
+  final def ordVecIsSorted(ords: ParVector[Ord]): Boolean = ords.sameElements(ords.toVector.sorted.reverse.par)
 
   final def ordVecSortedSubVec(ords: ParVector[Ord]): ParVector[Ord] = {
     @tailrec
@@ -202,9 +219,9 @@ object ordinalApp extends App {
   logg("omegaStack(2)")(omegaStack(2))
   logg("omegaStack(3)")(omegaStack(3))
   println("****************************")
-  val alpha: Ord = Ord(Vector(one,one,Ordinal(42),zero,one,zero,zero).par)
-  val beta: Ord = Ord(Vector(zero,one,omegaStack(2),Ord(Vector(omegaStack(2),omegaStack(3)).par),omegaStack(2),omegaStack(1)).par)
-  val gamma: Ord = Ord(Vector(zero,one,omega).par)
+  val alpha: Ord = Ord(ParVector(one,one,Ordinal(42),zero,one,zero,zero))
+  val beta: Ord = Ord(ParVector(zero,one,omegaStack(2),Ord(ParVector(omegaStack(2),omegaStack(3))),omegaStack(2),omegaStack(1)))
+  val gamma: Ord = Ord(ParVector(zero,one,omega))
   /*
   α	= ω+ω+ω^(42)+1+ω+2
   β	= 1+ω+ω^(ω^ω)+ω^(ω^(ω^ω)+ω^(ω^(ω^ω)))+ω^(ω^ω)+ω^ω
@@ -255,10 +272,28 @@ object ordinalApp extends App {
   logg("omegaStack(3).fSeq(1)")(Fseq(omegaStack(3)).getSeq.get(1))
   logg("omegaStack(3).fSeq(42)")(Fseq(omegaStack(3)).getSeq.get(42))
   println("****************************")
+  logg("generate(0)")(generate(0))
+  logg("generate(1)")(generate(1))
+  logg("generate(1)")(generate(1))
+  logg("generate(2)")(generate(2))
+  logg("generate(2)")(generate(2))
+  logg("generate(3)")(generate(3))
+  logg("generate(3)")(generate(3))
+  logg("generate(4)")(generate(4))
+  logg("generate(4)")(generate(4))
+  logg("generate(8)")(generate(8))
+  logg("generate(10)")(generate(10))
+  logg("generate(12)")(generate(12))
+  println("****************************")
   println("***** Work in Progress *****")
   println("****************************")
+  val testOrd: Ord = Ord(ParVector(Ordinal(14).exp.mult(two),Ordinal(8).exp.mult(two)))
+  val testString = "ω^(ω^(14)+ω^(14))+ω^(ω^8+ω^8)"
+  logg("testOrd")(testOrd)
+  logg("testOrd == testString")(testOrd.toString == testString)
+  logg("testOrd.normalise")(testOrd.normalise)
+  logg("testOrd.normalise.isNormal")(testOrd.normalise.isNormal)
 }
-
 /// Local Variables:
 /// mode: scala
 /// coding: utf-8
